@@ -145,62 +145,33 @@ export async function login(req, res) {
         }
 
         if (user.status === "pending") {
+    return res.status(403).json({
+        success: false,
+        message: "Your account is waiting for admin approval."
+    });
+}
 
-            return res.status(403).json({
+if (user.status === "blocked") {
+    return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked."
+    });
+}
 
-                success: false,
+const token = generateToken(user);
 
-                message:
-                    "Your account is waiting for admin approval."
-
-            });
-
-        }
-
-        if (user.status === "blocked") {
-
-            return res.status(403).json({
-
-                success: false,
-
-                message:
-                    "Your account has been blocked."
-
-            });
-
-        }
-
-        const token = generateToken(user);
-
-            process.env.JWT_SECRET,
-
-            {
-
-                expiresIn: process.env.JWT_EXPIRES_IN || "7d"
-
-            }
-
-        );
-
-        return res.json({
-
-            success: true,
-
-            message: "Login successful.",
-
-            token,
-
-            user: {
-
-                id: user.id,
-                full_name: user.full_name,
-                username: user.username,
-                email: user.email,
-                role: user.role
-
-            }
-
-        });
+return res.json({
+    success: true,
+    message: "Login successful.",
+    token,
+    user: {
+        id: user.id,
+        full_name: user.full_name,
+        username: user.username,
+        email: user.email,
+        role: user.role
+    }
+});
 
     }
 
