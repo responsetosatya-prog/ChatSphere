@@ -6,7 +6,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import path from "path";
 
-import { connectDatabase } from "./config/database.js";
+import pool from "./config/database.js";
 import { initializeDatabase } from "./config/initDatabase.js";
 
 import authRoutes from "./routes/auth.js";
@@ -97,7 +97,6 @@ async function startServer() {
 
     try {
 
-        await connectDatabase();
         await initializeDatabase();
 
         const io = initializeSocket(server);
