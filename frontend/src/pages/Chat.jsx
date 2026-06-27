@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import API from "../services/api";
 import socket from "../socket/socket";
 
@@ -12,8 +12,23 @@ function Chat() {
     const [isTyping, setIsTyping] = useState(false);
     const [typingUser, setTypingUser] = useState(null);
 
+    const messagesEndRef = useRef(null);
+
     const user = JSON.parse(localStorage.getItem("user"));
     const token = localStorage.getItem("token");
+
+    /*
+    ==========================================
+    AUTO SCROLL
+    ==========================================
+    */
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
 
     /*
     ==========================================
@@ -82,11 +97,9 @@ function Chat() {
                 }
             );
 
-            const newMessage = res.data.data;
+            setMessages((prev) => [...prev, res.data.data]);
 
-            setMessages((prev) => [...prev, newMessage]);
-
-            socket.emit("send-message", newMessage);
+            socket.emit("send-message", res.data.data);
 
             setText("");
 
@@ -98,7 +111,7 @@ function Chat() {
 
     /*
     ==========================================
-    TYPING HANDLER
+    TYPING
     ==========================================
     */
     const handleTyping = (e) => {
@@ -125,7 +138,7 @@ function Chat() {
 
     /*
     ==========================================
-    SOCKET SETUP
+    SOCKET EVENTS
     ==========================================
     */
     useEffect(() => {
@@ -158,7 +171,7 @@ function Chat() {
 
     /*
     ==========================================
-    LOAD ON START
+    INIT
     ==========================================
     */
     useEffect(() => {
@@ -173,7 +186,7 @@ function Chat() {
             <div style={styles.sidebar}>
                 <h3 style={{ color: "white" }}>Chats</h3>
 
-                {conversations.map((c, index) => {
+                {conversations.map((c, i) => {
 
                     const otherUser =
                         c.user_one_id === user.id
@@ -182,7 +195,7 @@ function Chat() {
 
                     return (
                         <div
-                            key={index}
+                            key={i}
                             style={styles.chatItem}
                             onClick={() => loadMessages(otherUser)}
                         >
@@ -192,10 +205,11 @@ function Chat() {
                             </p>
                         </div>
                     );
+
                 })}
             </div>
 
-            {/* CHAT BOX */}
+            {/* CHAT AREA */}
             <div style={styles.chatBox}>
 
                 {selectedUser ? (
@@ -221,11 +235,14 @@ function Chat() {
                                 </div>
                             ))}
 
+                            {/* AUTO SCROLL TARGET */}
+                            <div ref={messagesEndRef} />
+
                         </div>
 
-                        {/* TYPING INDICATOR */}
+                        {/* TYPING */}
                         {isTyping && (
-                            <p style={{ color: "#94a3b8", fontSize: "12px" }}>
+                            <p style={{ color: "#94a3b8", fontSize: 12 }}>
                                 User {typingUser} is typing...
                             </p>
                         )}
@@ -257,6 +274,7 @@ function Chat() {
         </div>
 
     );
+
 }
 
 /*
@@ -275,7 +293,8 @@ const styles = {
     sidebar: {
         width: "30%",
         background: "#1e293b",
-        padding: "10px"
+        padding: "10px",
+        overflowY: "auto"
     },
 
     chatBox: {
