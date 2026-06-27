@@ -1,3 +1,4 @@
+// import validator from "validator";
 import validator from "validator";
 
 /*
@@ -21,7 +22,7 @@ export function validateRegister(req, res, next) {
 
     }
 
-    if (!validator.isEmail(email)) {
+    if (!email.includes("@")) {
 
         return res.status(400).json({
 
