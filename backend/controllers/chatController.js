@@ -1,10 +1,68 @@
+import pool from "../config/database.js";
 import {
-    createMessage,
-    getConversation,
-    editMessage,
-    deleteMessage,
-    markSeen
-} from "../models/Message.js";
+    findConversation,
+    createConversation,
+    updateConversation
+} from "../models/Conversation.js";
+
+/*
+==========================================
+Get Messages Between Users
+GET /api/chat/:userId
+==========================================
+*/
+
+export async function getMessages(req, res) {
+
+    try {
+
+        const userId = req.user.id;
+        const otherUserId = req.params.userId;
+
+        // Find conversation
+        let conversation = await findConversation(userId, otherUserId);
+
+        if (!conversation) {
+
+            return res.json({
+                success: true,
+                messages: []
+            });
+
+        }
+
+        const result = await pool.query(
+
+            `
+            SELECT *
+            FROM messages
+            WHERE conversation_id = $1
+            ORDER BY created_at ASC
+            `,
+
+            [conversation.id]
+
+        );
+
+        res.json({
+            success: true,
+            messages: result.rows
+        });
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to load messages"
+        });
+
+    }
+
+}
 
 /*
 ==========================================
@@ -17,192 +75,65 @@ export async function sendMessage(req, res) {
 
     try {
 
-        const sender_id = req.user.id;
+        const senderId = req.user.id;
+        const { receiver_id, message } = req.body;
 
-        const {
-            receiver_id,
-            message,
-            message_type,
-            media_url
-        } = req.body;
+        if (!receiver_id || (!message && !req.body.media_url)) {
 
-        if (!receiver_id) {
             return res.status(400).json({
                 success: false,
-                message: "Receiver ID is required."
+                message: "Invalid message data"
             });
+
         }
 
-        if (!message && !media_url) {
-            return res.status(400).json({
-                success: false,
-                message: "Message cannot be empty."
-            });
+        // Find or create conversation
+        let conversation = await findConversation(senderId, receiver_id);
+
+        if (!conversation) {
+
+            conversation = await createConversation(senderId, receiver_id);
+
         }
 
-        const newMessage = await createMessage({
-            sender_id,
-            receiver_id,
-            message,
-            message_type,
-            media_url
-        });
+        // Insert message
+        const result = await pool.query(
 
-        // Socket.IO will be integrated later
+            `
+            INSERT INTO messages
+            (conversation_id, sender_id, receiver_id, message)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+            `,
+
+            [
+                conversation.id,
+                senderId,
+                receiver_id,
+                message
+            ]
+
+        );
+
+        const newMessage = result.rows[0];
+
+        // Update conversation last message
+        await updateConversation(conversation.id, message);
 
         res.status(201).json({
             success: true,
-            message: "Message sent successfully.",
             data: newMessage
         });
 
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            success: false,
-            message: "Failed to send message."
-        });
-
     }
 
-}
-
-/*
-==========================================
-Get Conversation
-GET /api/chat/:userId
-==========================================
-*/
-
-export async function getMessages(req, res) {
-
-    try {
-
-        const currentUser = req.user.id;
-
-        const otherUser = req.params.userId;
-
-        const messages = await getConversation(
-            currentUser,
-            otherUser
-        );
-
-        res.json({
-            success: true,
-            messages
-        });
-
-    } catch (error) {
+    catch (error) {
 
         console.error(error);
 
         res.status(500).json({
             success: false,
-            message: "Failed to load messages."
-        });
-
-    }
-
-}
-
-/*
-==========================================
-Edit Message
-PUT /api/chat/message/:id
-==========================================
-*/
-
-export async function updateMessage(req, res) {
-
-    try {
-
-        const { id } = req.params;
-        const { message } = req.body;
-
-        const updated = await editMessage(id, message);
-
-        res.json({
-            success: true,
-            message: "Message updated.",
-            data: updated
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            success: false,
-            message: "Unable to update message."
-        });
-
-    }
-
-}
-
-/*
-==========================================
-Delete Message
-DELETE /api/chat/message/:id
-==========================================
-*/
-
-export async function removeMessage(req, res) {
-
-    try {
-
-        const { id } = req.params;
-
-        await deleteMessage(id);
-
-        res.json({
-            success: true,
-            message: "Message deleted."
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            success: false,
-            message: "Unable to delete message."
-        });
-
-    }
-
-}
-
-/*
-==========================================
-Mark Messages As Seen
-PUT /api/chat/seen/:userId
-==========================================
-*/
-
-export async function seenMessages(req, res) {
-
-    try {
-
-        const receiverId = req.user.id;
-        const senderId = req.params.userId;
-
-        await markSeen(senderId, receiverId);
-
-        res.json({
-            success: true,
-            message: "Messages marked as seen."
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            success: false,
-            message: "Unable to update seen status."
+            message: "Failed to send message"
         });
 
     }
