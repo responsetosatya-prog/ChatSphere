@@ -7,32 +7,30 @@ function Chat() {
     const [conversations, setConversations] = useState([]);
     const [selectedUser, setSelectedUser] = useState(null);
     const [messages, setMessages] = useState([]);
-    const [text, setText] = useState([]);
+    const [text, setText] = useState("");
+
+    const [isTyping, setIsTyping] = useState(false);
+    const [typingUser, setTypingUser] = useState(null);
 
     const user = JSON.parse(localStorage.getItem("user"));
     const token = localStorage.getItem("token");
 
     /*
     ==========================================
-    Load Conversations
+    LOAD CONVERSATIONS
     ==========================================
     */
-
     const loadConversations = async () => {
 
         try {
 
             const res = await API.get("/conversations", {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                headers: { Authorization: `Bearer ${token}` }
             });
 
             setConversations(res.data.conversations);
 
-        }
-
-        catch (err) {
+        } catch (err) {
             console.error(err);
         }
 
@@ -40,29 +38,23 @@ function Chat() {
 
     /*
     ==========================================
-    Load Messages
+    LOAD MESSAGES
     ==========================================
     */
-
     const loadMessages = async (userId) => {
 
         try {
 
             const res = await API.get(`/chat/${userId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                headers: { Authorization: `Bearer ${token}` }
             });
 
             setMessages(res.data.messages);
             setSelectedUser(userId);
 
-            // Join socket room
             socket.emit("join-conversation", userId);
 
-        }
-
-        catch (err) {
+        } catch (err) {
             console.error(err);
         }
 
@@ -70,10 +62,9 @@ function Chat() {
 
     /*
     ==========================================
-    Send Message (REAL-TIME)
+    SEND MESSAGE
     ==========================================
     */
-
     const sendMessage = async () => {
 
         if (!text.trim()) return;
@@ -87,25 +78,19 @@ function Chat() {
                     message: text
                 },
                 {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
+                    headers: { Authorization: `Bearer ${token}` }
                 }
             );
 
             const newMessage = res.data.data;
 
-            // Update UI instantly
             setMessages((prev) => [...prev, newMessage]);
 
-            // Emit via socket
             socket.emit("send-message", newMessage);
 
             setText("");
 
-        }
-
-        catch (err) {
+        } catch (err) {
             console.error(err);
         }
 
@@ -113,22 +98,56 @@ function Chat() {
 
     /*
     ==========================================
-    SOCKET LISTENERS
+    TYPING HANDLER
     ==========================================
     */
+    const handleTyping = (e) => {
 
+        setText(e.target.value);
+
+        socket.emit("typing", {
+            conversationId: selectedUser,
+            userId: user.id
+        });
+
+        clearTimeout(window.typingTimeout);
+
+        window.typingTimeout = setTimeout(() => {
+
+            socket.emit("stop-typing", {
+                conversationId: selectedUser,
+                userId: user.id
+            });
+
+        }, 1000);
+
+    };
+
+    /*
+    ==========================================
+    SOCKET SETUP
+    ==========================================
+    */
     useEffect(() => {
 
-        // Connect socket
         socket.connect();
 
         socket.emit("user-online", user.id);
 
-        // Receive message
         socket.on("receive-message", (message) => {
-
             setMessages((prev) => [...prev, message]);
+        });
 
+        socket.on("user-typing", (data) => {
+            if (data.userId !== user.id) {
+                setTypingUser(data.userId);
+                setIsTyping(true);
+            }
+        });
+
+        socket.on("user-stop-typing", () => {
+            setIsTyping(false);
+            setTypingUser(null);
         });
 
         return () => {
@@ -139,10 +158,9 @@ function Chat() {
 
     /*
     ==========================================
-    LOAD CONVERSATIONS ON START
+    LOAD ON START
     ==========================================
     */
-
     useEffect(() => {
         loadConversations();
     }, []);
@@ -151,9 +169,8 @@ function Chat() {
 
         <div style={styles.container}>
 
-            {/* LEFT SIDEBAR */}
+            {/* SIDEBAR */}
             <div style={styles.sidebar}>
-
                 <h3 style={{ color: "white" }}>Chats</h3>
 
                 {conversations.map((c, index) => {
@@ -164,38 +181,28 @@ function Chat() {
                             : c.user_one_id;
 
                     return (
-
                         <div
                             key={index}
                             style={styles.chatItem}
                             onClick={() => loadMessages(otherUser)}
                         >
-
                             User {otherUser}
-
                             <p style={{ fontSize: 12 }}>
                                 {c.last_message}
                             </p>
-
                         </div>
-
                     );
-
                 })}
-
             </div>
 
-            {/* CHAT WINDOW */}
+            {/* CHAT BOX */}
             <div style={styles.chatBox}>
 
                 {selectedUser ? (
-
                     <>
-
                         <div style={styles.messages}>
 
                             {messages.map((m) => (
-
                                 <div
                                     key={m.id}
                                     style={{
@@ -210,20 +217,23 @@ function Chat() {
                                                 : "#334155"
                                     }}
                                 >
-
                                     {m.message}
-
                                 </div>
-
                             ))}
 
                         </div>
 
-                        <div style={styles.inputBox}>
+                        {/* TYPING INDICATOR */}
+                        {isTyping && (
+                            <p style={{ color: "#94a3b8", fontSize: "12px" }}>
+                                User {typingUser} is typing...
+                            </p>
+                        )}
 
+                        <div style={styles.inputBox}>
                             <input
                                 value={text}
-                                onChange={(e) => setText(e.target.value)}
+                                onChange={handleTyping}
                                 placeholder="Type message..."
                                 style={styles.input}
                             />
@@ -234,17 +244,12 @@ function Chat() {
                             >
                                 Send
                             </button>
-
                         </div>
-
                     </>
-
                 ) : (
-
                     <h3 style={{ color: "white" }}>
                         Select a chat
                     </h3>
-
                 )}
 
             </div>
@@ -252,7 +257,6 @@ function Chat() {
         </div>
 
     );
-
 }
 
 /*
@@ -260,7 +264,6 @@ function Chat() {
 STYLES
 ==========================================
 */
-
 const styles = {
 
     container: {
@@ -272,8 +275,7 @@ const styles = {
     sidebar: {
         width: "30%",
         background: "#1e293b",
-        padding: "10px",
-        overflowY: "auto"
+        padding: "10px"
     },
 
     chatBox: {
@@ -289,8 +291,8 @@ const styles = {
         margin: "5px 0",
         background: "#334155",
         color: "white",
-        cursor: "pointer",
-        borderRadius: "5px"
+        borderRadius: "5px",
+        cursor: "pointer"
     },
 
     messages: {
@@ -310,8 +312,7 @@ const styles = {
 
     inputBox: {
         display: "flex",
-        gap: "10px",
-        marginTop: "10px"
+        gap: "10px"
     },
 
     input: {
@@ -324,12 +325,10 @@ const styles = {
     button: {
         padding: "10px",
         background: "#22c55e",
-        border: "none",
         color: "white",
-        borderRadius: "5px",
-        cursor: "pointer"
+        border: "none",
+        borderRadius: "5px"
     }
-
 };
 
 export default Chat;
