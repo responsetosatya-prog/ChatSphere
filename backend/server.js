@@ -9,6 +9,7 @@ import cookieParser from "cookie-parser";
 
 import { connectDatabase } from "./config/database.js";
 import authRoutes from "./routes/auth.js";
+import adminRoutes from "./routes/admin.js";
 
 dotenv.config();
 
@@ -69,6 +70,7 @@ app.get("/", (req, res) => {
 ============================ */
 
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 
 /* ============================
    Socket Events
