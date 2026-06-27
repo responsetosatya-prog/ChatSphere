@@ -7,6 +7,8 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 
+import { connectDatabase } from "./config/database.js";
+
 dotenv.config();
 
 const app = express();
@@ -134,9 +136,13 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => {
+async function startServer() {
 
-    console.log(`
+    await connectDatabase();
+
+    server.listen(PORT, () => {
+
+        console.log(`
 =========================================
 🚀 ChatSphere Backend Started
 =========================================
@@ -145,4 +151,8 @@ Environment: ${process.env.NODE_ENV || "development"}
 =========================================
 `);
 
-});
+    });
+
+}
+
+startServer();
