@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Create Account | ChatSphere</title>
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/responsive.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+</head>
+
+<body>
+
+<header class="header">
+
+    <nav class="navbar container">
+
+        <div class="logo">
+            ChatSphere
+        </div>
+
+        <div class="nav-buttons">
+
+            <a href="index.html" class="btn btn-outline">
+                Home
+            </a>
+
+            <a href="login.html" class="btn btn-primary">
+                Login
+            </a>
+
+        </div>
+
+    </nav>
+
+</header>
+
+<main class="login-page">
+
+    <div class="container">
+
+        <div class="login-card">
+
+            <div class="login-header">
+
+                <h1>Create Your Account</h1>
+
+                <p>
+                    Register to join ChatSphere.
+                    Your account will require admin approval before you can log in.
+                </p>
+
+            </div>
+
+            <form id="signupForm">
+
+                <div class="form-group">
+
+                    <label>Full Name</label>
+
+                    <input
+                        type="text"
+                        id="fullName"
+                        placeholder="Enter your full name"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>Username</label>
+
+                    <input
+                        type="text"
+                        id="username"
+                        placeholder="Choose a username"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>Email Address</label>
+
+                    <input
+                        type="email"
+                        id="email"
+                        placeholder="Enter your email"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>Password</label>
+
+                    <input
+                        type="password"
+                        id="password"
+                        placeholder="Create a password"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>Confirm Password</label>
+
+                    <input
+                        type="password"
+                        id="confirmPassword"
+                        placeholder="Confirm your password"
+                        required
+                    >
+
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn btn-primary login-btn">
+
+                    Create Account
+
+                </button>
+
+            </form>
+
+            <p class="signup-link">
+
+                Already have an account?
+
+                <a href="login.html">
+
+                    Login Here
+
+                </a>
+
+            </p>
+
+            <div
+                id="signupMessage"
+                class="login-message">
+            </div>
+
+        </div>
+
+    </div>
+
+</main>
+
+<script>
+
+const form = document.getElementById("signupForm");
+
+form.addEventListener("submit",(e)=>{
+
+    e.preventDefault();
+
+    const password =
+        document.getElementById("password").value;
+
+    const confirm =
+        document.getElementById("confirmPassword").value;
+
+    const message =
+        document.getElementById("signupMessage");
+
+    if(password !== confirm){
+
+        message.innerHTML =
+        "Passwords do not match.";
+
+        return;
+
+    }
+
+    message.innerHTML =
+    "Registration successful. Waiting for admin approval.";
+
+    /*
+    Later this will send a POST request to:
+
+    POST /api/auth/register
+
+    The backend will:
+    - Hash the password
+    - Store the user
+    - Mark account as Pending
+    - Notify the admin
+    */
+
+});
+
+</script>
+
+</body>
+</html>
