@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import { generateToken } from "../utils/generateToken.js";
 
 import {
     createUser,
@@ -170,17 +170,7 @@ export async function login(req, res) {
 
         }
 
-        const token = jwt.sign(
-
-            {
-
-                id: user.id,
-
-                email: user.email,
-
-                role: user.role
-
-            },
+        const token = generateToken(user);
 
             process.env.JWT_SECRET,
 
