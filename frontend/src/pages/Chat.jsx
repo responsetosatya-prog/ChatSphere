@@ -1,10 +1,9 @@
-// frontend/src/pages/Chat.jsx (Updated with Reply Feature)
+// frontend/src/pages/Chat.jsx - COMPLETE FIXED VERSION
 import { useEffect, useState, useRef, useCallback } from "react";
 import { 
   FaSearch, FaUserPlus, FaPaperPlane, 
   FaImage, FaSmile, FaTimes, FaUser,
-  FaReply, FaEllipsisV, FaTrash, FaEdit,
-  FaCheckCircle
+  FaReply, FaEllipsisV, FaTrash, FaEdit
 } from "react-icons/fa";
 import API from "../services/api";
 import socket from "../socket/socket";
@@ -23,8 +22,7 @@ function Chat() {
   const [typing, setTyping] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [replyTo, setReplyTo] = useState(null); // ✅ NEW: Reply state
-  const [showReactions, setShowReactions] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);
   
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -60,23 +58,32 @@ function Chat() {
     }
   }, []);
 
-  // Load messages
+  // ✅ FIXED: Load messages - sets selectedUser correctly
   const loadMessages = useCallback(async (otherUser) => {
+    if (!otherUser || !otherUser.id) {
+      console.error("Invalid user:", otherUser);
+      return;
+    }
+
     try {
       setLoading(true);
       console.log("Loading messages for user:", otherUser);
+      
+      // Set selected user FIRST so the chat interface shows
+      setSelectedUser(otherUser);
       
       const res = await API.get(`/chat/${otherUser.id}`);
       console.log("Messages response:", res.data);
       
       setMessages(res.data.messages || []);
-      setSelectedUser(otherUser);
       
-      const roomId = otherUser.id;
-      socket.emit("join-conversation", roomId);
+      // Join conversation room for socket
+      socket.emit("join-conversation", otherUser.id);
       
     } catch (err) {
       console.error("Error loading messages:", err);
+      // Even if messages fail, keep the user selected
+      setSelectedUser(otherUser);
     } finally {
       setLoading(false);
     }
@@ -107,6 +114,7 @@ function Chat() {
       
       if (res.data.success) {
         await loadConversations();
+        // ✅ Use loadMessages to set the user
         await loadMessages(otherUser);
         setShowSearch(false);
         setSearchQuery("");
@@ -114,11 +122,12 @@ function Chat() {
       }
     } catch (err) {
       console.error("Error starting conversation:", err);
+      // ✅ Even if API fails, try to load messages
       await loadMessages(otherUser);
     }
   }, [loadConversations, loadMessages]);
 
-  // ✅ NEW: Send message with reply support
+  // ✅ FIXED: Send message with reply support
   const sendMessage = useCallback(async () => {
     if (!text.trim() || !selectedUser) {
       console.log("Cannot send: no text or no selected user");
@@ -133,7 +142,6 @@ function Chat() {
         message: text
       };
 
-      // ✅ Add reply_to_message_id if replying
       if (replyTo) {
         payload.reply_to_message_id = replyTo.id;
         console.log("Replying to message:", replyTo.id);
@@ -162,7 +170,7 @@ function Chat() {
       
       setText("");
       setTyping(false);
-      setReplyTo(null); // ✅ Clear reply state after sending
+      setReplyTo(null);
       
       await loadConversations();
       setTimeout(scrollToBottom, 100);
@@ -173,7 +181,7 @@ function Chat() {
     }
   }, [text, selectedUser, replyTo, loadConversations]);
 
-  // ✅ NEW: Handle reply action
+  // Handle reply
   const handleReply = (message) => {
     setReplyTo({
       id: message.id,
@@ -184,7 +192,7 @@ function Chat() {
     inputRef.current?.focus();
   };
 
-  // ✅ NEW: Cancel reply
+  // Cancel reply
   const cancelReply = () => {
     setReplyTo(null);
   };
@@ -297,8 +305,15 @@ function Chat() {
     window.location.href = "/login";
   };
 
-  // ✅ NEW: Check if current user is admin
   const isAdmin = user?.role === 'admin';
+
+  // Debug logging
+  console.log("Current state:", {
+    selectedUser: selectedUser?.username || 'none',
+    messagesCount: messages.length,
+    conversationsCount: conversations.length,
+    isConnected
+  });
 
   return (
     <div className="chat-container">
@@ -429,7 +444,7 @@ function Chat() {
         </div>
       </div>
 
-      {/* Chat Area */}
+      {/* Chat Area - THIS IS WHERE THE MESSAGING INTERFACE SHOWS */}
       <div className="chat-area">
         {selectedUser ? (
           <>
@@ -444,7 +459,7 @@ function Chat() {
               }}
             />
 
-            {/* ✅ NEW: Reply Preview Bar */}
+            {/* Reply Preview Bar */}
             {replyTo && (
               <div className="reply-preview">
                 <div className="reply-preview-content">
@@ -485,7 +500,7 @@ function Chat() {
                           </div>
                         )}
                         <div className="message-content">
-                          {/* ✅ NEW: Reply Preview in Message */}
+                          {/* Reply Preview in Message */}
                           {m.reply_to_message_id && (
                             <div className="message-reply-preview">
                               <FaReply className="reply-icon" />
@@ -506,7 +521,7 @@ function Chat() {
                               })}
                             </div>
                             
-                            {/* ✅ NEW: Message Actions */}
+                            {/* Message Actions */}
                             <div className="message-actions">
                               <button 
                                 className="message-action-btn"
@@ -550,6 +565,7 @@ function Chat() {
               )}
             </div>
 
+            {/* ✅ THIS IS THE INPUT - Make sure it's always visible when user is selected */}
             <div className="chat-input-container">
               <button className="input-action">
                 <FaImage />
