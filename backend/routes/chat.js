@@ -1,10 +1,9 @@
+// backend/routes/chat.js
 import express from "express";
-
 import {
     getMessages,
     sendMessage
 } from "../controllers/chatController.js";
-
 import { authenticateToken } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -12,19 +11,14 @@ const router = express.Router();
 /*
 ==========================================
 Chat Routes
+Base URL: /api/chat
 ==========================================
 */
 
-router.get(
-    "/:userId",
-    authenticateToken,
-    getMessages
-);
+// Get messages with another user
+router.get("/:userId", authenticateToken, getMessages);
 
-router.post(
-    "/send",
-    authenticateToken,
-    sendMessage
-);
+// Send a message
+router.post("/send", authenticateToken, sendMessage);
 
 export default router;
