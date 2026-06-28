@@ -332,28 +332,38 @@ function Chat() {
             </div>
           </div>
           
-          <div className="sidebar-actions">
-            {isAdmin && (
-              <button 
-                className="btn btn-primary btn-sm"
-                onClick={() => window.location.href = '/admin'}
-                style={{ marginRight: '4px' }}
-              >
-                ⚙️ Admin
-              </button>
-            )}
-            
-            <button 
-              className="btn btn-secondary btn-sm" 
-              onClick={() => setShowSearch(!showSearch)}
-            >
-              <FaUserPlus />
-            </button>
-            <button className="btn btn-danger btn-sm" onClick={logout}>
-              Logout
-            </button>
-          </div>
-        </div>
+          // In Chat.jsx, inside the sidebar-actions div, add the profile button:
+
+<div className="sidebar-actions">
+    {/* ✅ Profile Button - Add this */}
+    <button 
+        className="btn btn-secondary btn-sm"
+        onClick={() => window.location.href = '/profile'}
+        title="Profile"
+    >
+        <FaUser />
+    </button>
+    
+    {isAdmin && (
+        <button 
+            className="btn btn-primary btn-sm"
+            onClick={() => window.location.href = '/admin'}
+            style={{ marginRight: '4px' }}
+        >
+            ⚙️ Admin
+        </button>
+    )}
+    
+    <button 
+        className="btn btn-secondary btn-sm" 
+        onClick={() => setShowSearch(!showSearch)}
+    >
+        <FaUserPlus />
+    </button>
+    <button className="btn btn-danger btn-sm" onClick={logout}>
+        Logout
+    </button>
+</div>
 
         {/* Search */}
         {showSearch && (
