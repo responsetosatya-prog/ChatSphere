@@ -1,49 +1,48 @@
+// backend/routes/admin.js - Updated
 import express from "express";
-import pool from "../config/database.js";
+import {
+    getDashboard,
+    getUsers,
+    approveUser,
+    blockUser,
+    deleteUser
+} from "../controllers/adminController.js";
+import { authenticateToken, requireAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Get all users
-router.get("/users", async (req, res) => {
-    try {
-        const result = await pool.query(
-            "SELECT id, full_name, email, status FROM users ORDER BY id DESC"
-        );
+// All admin routes require authentication and admin role
+router.use(authenticateToken);
+router.use(requireAdmin);
 
-        res.json(result.rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
-    }
-});
+/**
+ * GET /api/admin/dashboard
+ * Get dashboard statistics
+ */
+router.get("/dashboard", getDashboard);
 
-// Approve user
-router.get("/approve/:email", async (req, res) => {
-    try {
-        const result = await pool.query(
-            "UPDATE users SET status = 'approved' WHERE email = $1 RETURNING id, full_name, email, status",
-            [req.params.email]
-        );
+/**
+ * GET /api/admin/users
+ * Get all users
+ */
+router.get("/users", getUsers);
 
-        if (result.rowCount === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found"
-            });
-        }
+/**
+ * PUT /api/admin/users/:id/approve
+ * Approve a user
+ */
+router.put("/users/:id/approve", approveUser);
 
-        res.json({
-            success: true,
-            message: "User approved successfully",
-            user: result.rows[0]
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({
-            success: false,
-            message: err.message
-        });
-    }
-});
+/**
+ * PUT /api/admin/users/:id/block
+ * Block a user
+ */
+router.put("/users/:id/block", blockUser);
+
+/**
+ * DELETE /api/admin/users/:id
+ * Delete a user
+ */
+router.delete("/users/:id", deleteUser);
 
 export default router;
