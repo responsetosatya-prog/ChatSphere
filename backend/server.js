@@ -30,7 +30,13 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+// backend/server.js - Add this after creating the app
 const app = express();
+
+// ✅ Add this line to fix the X-Forwarded-For warning
+app.set('trust proxy', 1);
+
+// ... rest of your code ...
 const server = http.createServer(app);
 
 // Rate limiting
