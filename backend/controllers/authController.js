@@ -1,7 +1,7 @@
-// backend/controllers/authController.js
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/generateToken.js";
 import pool from "../config/database.js";
+import { createUser, findUserByEmail, findUserByUsername } from "../models/User.js";
 
 export async function register(req, res) {
     try {
@@ -10,45 +10,33 @@ export async function register(req, res) {
         if (!full_name || !username || !email || !password) {
             return res.status(400).json({
                 success: false,
-                message: "Please fill all fields."
+                message: "Please fill all fields.",
             });
         }
 
-        // Check email
-        const emailCheck = await pool.query(
-            "SELECT * FROM users WHERE email = $1",
-            [email]
-        );
-        if (emailCheck.rows[0]) {
+        const emailExists = await findUserByEmail(email);
+        if (emailExists) {
             return res.status(409).json({
                 success: false,
-                message: "Email already exists."
+                message: "Email already exists.",
             });
         }
 
-        // Check username
-        const usernameCheck = await pool.query(
-            "SELECT * FROM users WHERE username = $1",
-            [username]
-        );
-        if (usernameCheck.rows[0]) {
+        const usernameExists = await findUserByUsername(username);
+        if (usernameExists) {
             return res.status(409).json({
                 success: false,
-                message: "Username already exists."
+                message: "Username already exists.",
             });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Auto-approve users
-        const result = await pool.query(
-            `INSERT INTO users (full_name, username, email, password, status, role)
-             VALUES ($1, $2, $3, $4, 'approved', 'user')
-             RETURNING id, full_name, username, email, status, role`,
-            [full_name, username, email, hashedPassword]
-        );
-
-        const newUser = result.rows[0];
+        const newUser = await createUser({
+            full_name,
+            username,
+            email,
+            password: hashedPassword,
+        });
 
         return res.status(201).json({
             success: true,
@@ -59,15 +47,14 @@ export async function register(req, res) {
                 username: newUser.username,
                 email: newUser.email,
                 status: newUser.status,
-                role: newUser.role
-            }
+            },
         });
 
     } catch (error) {
         console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Registration failed."
+            message: "Registration failed.",
         });
     }
 }
@@ -76,16 +63,11 @@ export async function login(req, res) {
     try {
         const { email, password } = req.body;
 
-        const result = await pool.query(
-            "SELECT * FROM users WHERE email = $1",
-            [email]
-        );
-        const user = result.rows[0];
-
+        const user = await findUserByEmail(email);
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid email or password."
+                message: "Invalid email or password.",
             });
         }
 
@@ -93,9 +75,19 @@ export async function login(req, res) {
         if (!validPassword) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid email or password."
+                message: "Invalid email or password.",
             });
         }
+
+        if (user.status === "blocked") {
+            return res.status(403).json({
+                success: false,
+                message: "Your account has been blocked.",
+            });
+        }
+
+        // Update online status
+        await pool.query("UPDATE users SET is_online = TRUE, last_seen = NOW() WHERE id = $1", [user.id]);
 
         const token = generateToken(user);
 
@@ -108,16 +100,17 @@ export async function login(req, res) {
                 full_name: user.full_name,
                 username: user.username,
                 email: user.email,
+                profile_picture: user.profile_picture || '',
                 role: user.role,
-                status: user.status
-            }
+                status: user.status,
+            },
         });
 
     } catch (error) {
         console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Login failed."
+            message: "Login failed.",
         });
     }
 }
