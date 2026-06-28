@@ -1,64 +1,47 @@
-// backend/controllers/chatController.js - SIMPLIFIED WORKING VERSION
 import pool from "../config/database.js";
-import {
-    findConversation,
-    createConversation,
-    updateConversation
-} from "../models/Conversation.js";
-
-/*
-==========================================
-Get Messages Between Users
-==========================================
-*/
+import { findConversation, createConversation, updateConversation } from "../models/Conversation.js";
+import { createMessage, getMessageById, markMessagesAsSeen } from "../models/Message.js";
 
 export async function getMessages(req, res) {
     try {
         const userId = req.user.id;
         const otherUserId = parseInt(req.params.userId);
 
-        console.log(`Getting messages between ${userId} and ${otherUserId}`);
-
         if (!otherUserId) {
             return res.status(400).json({
                 success: false,
-                message: "User ID is required"
+                message: "User ID is required",
             });
         }
 
         let conversation = await findConversation(userId, otherUserId);
-
         if (!conversation) {
             return res.json({
                 success: true,
-                messages: []
+                messages: [],
             });
         }
 
+        // Mark messages as seen
+        await markMessagesAsSeen(conversation.id, userId);
+
         const result = await pool.query(
-            `
-            SELECT 
-                id,
-                sender_id,
-                receiver_id,
-                message,
-                message_type,
-                media_url,
-                is_seen,
-                created_at,
-                updated_at
-            FROM messages
-            WHERE conversation_id = $1
-            ORDER BY created_at ASC
-            `,
+            `SELECT m.*, 
+                    sender.full_name as sender_name,
+                    reply_msg.message as reply_to_message,
+                    reply_user.full_name as reply_to_sender_name
+             FROM messages m
+             LEFT JOIN users sender ON m.sender_id = sender.id
+             LEFT JOIN messages reply_msg ON m.reply_to_message_id = reply_msg.id
+             LEFT JOIN users reply_user ON reply_msg.sender_id = reply_user.id
+             WHERE m.conversation_id = $1
+             ORDER BY m.created_at ASC`,
             [conversation.id]
         );
 
-        console.log(`Found ${result.rows.length} messages`);
-
         res.json({
             success: true,
-            messages: result.rows
+            messages: result.rows,
         });
 
     } catch (error) {
@@ -66,73 +49,49 @@ export async function getMessages(req, res) {
         res.status(500).json({
             success: false,
             message: "Failed to load messages",
-            error: error.message
         });
     }
 }
 
-/*
-==========================================
-Send Message - SIMPLIFIED VERSION
-==========================================
-*/
-
 export async function sendMessage(req, res) {
     try {
         const senderId = req.user.id;
-        const { receiver_id, message } = req.body;
-
-        console.log(`Sending message from ${senderId} to ${receiver_id}: "${message}"`);
+        const { receiver_id, message, reply_to_message_id } = req.body;
 
         if (!receiver_id) {
             return res.status(400).json({
                 success: false,
-                message: "Receiver ID is required"
+                message: "Receiver ID is required",
             });
         }
 
         if (!message || message.trim() === '') {
             return res.status(400).json({
                 success: false,
-                message: "Message cannot be empty"
+                message: "Message cannot be empty",
             });
         }
 
-        // Find or create conversation
         let conversation = await findConversation(senderId, receiver_id);
-
         if (!conversation) {
-            console.log("Creating new conversation");
             conversation = await createConversation(senderId, receiver_id);
         }
 
-        console.log("Conversation ID:", conversation.id);
+        const newMessage = await createMessage({
+            conversation_id: conversation.id,
+            sender_id: senderId,
+            receiver_id: receiver_id,
+            message: message.trim(),
+            reply_to_message_id: reply_to_message_id || null,
+        });
 
-        // Insert message - WITHOUT reply_to_message_id for now
-        const result = await pool.query(
-            `
-            INSERT INTO messages
-            (conversation_id, sender_id, receiver_id, message, message_type)
-            VALUES ($1, $2, $3, $4, 'text')
-            RETURNING *
-            `,
-            [
-                conversation.id,
-                senderId,
-                receiver_id,
-                message.trim()
-            ]
-        );
-
-        const newMessage = result.rows[0];
-        console.log("Message created:", newMessage.id);
-
-        // Update conversation last message
         await updateConversation(conversation.id, message.trim());
+
+        const fullMessage = await getMessageById(newMessage.id);
 
         res.status(201).json({
             success: true,
-            data: newMessage
+            data: fullMessage || newMessage,
         });
 
     } catch (error) {
@@ -140,7 +99,6 @@ export async function sendMessage(req, res) {
         res.status(500).json({
             success: false,
             message: "Failed to send message",
-            error: error.message
         });
     }
 }
