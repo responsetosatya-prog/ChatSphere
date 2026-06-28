@@ -148,7 +148,7 @@ function Chat() {
       // Emit to socket with conversation_id
       const socketMessage = {
         ...newMessage,
-        conversation_id: selectedUser.id // Use user ID as room
+        conversation_id: selectedUser.id
       };
       
       if (socketConnected.current) {
@@ -205,14 +205,11 @@ function Chat() {
 
   // Socket events setup
   useEffect(() => {
-    // Connect socket
     socket.connect();
     socketConnected.current = true;
 
-    // Set user online
     socket.emit("user-online", user.id);
 
-    // Socket event listeners
     const onConnect = () => {
       console.log("✅ Socket connected:", socket.id);
       setIsConnected(true);
@@ -227,9 +224,7 @@ function Chat() {
         if (exists) return prev;
         return [...prev, message];
       });
-      // Update conversations
       loadConversations();
-      // Scroll to bottom
       setTimeout(scrollToBottom, 100);
     };
 
@@ -263,7 +258,6 @@ function Chat() {
       socket.emit("user-online", user.id);
     };
 
-    // Register listeners
     socket.on("connect", onConnect);
     socket.on("receive-message", onReceiveMessage);
     socket.on("online-users", onOnlineUsers);
@@ -275,7 +269,6 @@ function Chat() {
       console.error("Socket connection error:", error);
     });
 
-    // Cleanup
     return () => {
       socket.off("connect", onConnect);
       socket.off("receive-message", onReceiveMessage);
@@ -290,12 +283,10 @@ function Chat() {
     };
   }, [user.id, loadConversations]);
 
-  // Load conversations on mount
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
 
-  // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
       searchUsers(searchQuery);
@@ -337,7 +328,19 @@ function Chat() {
             </div>
           </div>
           
+          {/* ✅ ADMIN BUTTON - ADD THIS RIGHT HERE */}
           <div className="sidebar-actions">
+            {/* Admin Button - Only shows for admin users */}
+            {user?.role === 'admin' && (
+              <button 
+                className="btn btn-primary btn-sm"
+                onClick={() => window.location.href = '/admin'}
+                style={{ marginRight: '4px' }}
+              >
+                ⚙️ Admin
+              </button>
+            )}
+            
             <button 
               className="btn btn-secondary btn-sm" 
               onClick={() => setShowSearch(!showSearch)}
@@ -500,7 +503,6 @@ function Chat() {
               )}
             </div>
 
-            {/* Chat Input */}
             <div className="chat-input-container">
               <button className="input-action">
                 <FaImage />
