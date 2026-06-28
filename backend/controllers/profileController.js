@@ -1,13 +1,6 @@
 // backend/controllers/profileController.js
 import pool from "../config/database.js";
 import bcrypt from "bcrypt";
-import { 
-    findUserById, 
-    updateUserProfile, 
-    updatePassword,
-    usernameExists,
-    emailExists 
-} from "../models/User.js";
 
 /*
 ==========================================
@@ -19,14 +12,36 @@ GET /api/profile/me
 export async function getMyProfile(req, res) {
     try {
         const userId = req.user.id;
-        const user = await findUserById(userId);
+        console.log("Fetching profile for user:", userId);
 
-        if (!user) {
+        const result = await pool.query(
+            `SELECT 
+                id, 
+                full_name, 
+                username, 
+                email, 
+                profile_picture, 
+                bio, 
+                location, 
+                website, 
+                role, 
+                status, 
+                is_online, 
+                last_seen, 
+                created_at 
+            FROM users 
+            WHERE id = $1`,
+            [userId]
+        );
+
+        if (!result.rows[0]) {
             return res.status(404).json({
                 success: false,
                 message: "User not found."
             });
         }
+
+        const user = result.rows[0];
 
         res.json({
             success: true,
@@ -48,10 +63,11 @@ export async function getMyProfile(req, res) {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Error in getMyProfile:", error);
         res.status(500).json({
             success: false,
-            message: "Failed to fetch profile."
+            message: "Failed to fetch profile.",
+            error: error.message
         });
     }
 }
@@ -68,10 +84,15 @@ export async function updateProfile(req, res) {
         const userId = req.user.id;
         const { full_name, username, email, bio, location, website } = req.body;
 
+        console.log("Updating profile for user:", userId);
+
         // Check if username is taken (excluding current user)
         if (username) {
-            const existing = await usernameExists(username, userId);
-            if (existing) {
+            const existing = await pool.query(
+                "SELECT id FROM users WHERE username = $1 AND id != $2",
+                [username, userId]
+            );
+            if (existing.rows[0]) {
                 return res.status(409).json({
                     success: false,
                     message: "Username is already taken."
@@ -81,8 +102,11 @@ export async function updateProfile(req, res) {
 
         // Check if email is taken (excluding current user)
         if (email) {
-            const existing = await emailExists(email, userId);
-            if (existing) {
+            const existing = await pool.query(
+                "SELECT id FROM users WHERE email = $1 AND id != $2",
+                [email, userId]
+            );
+            if (existing.rows[0]) {
                 return res.status(409).json({
                     success: false,
                     message: "Email is already in use."
@@ -91,29 +115,34 @@ export async function updateProfile(req, res) {
         }
 
         // Update profile
-        const updatedUser = await updateUserProfile(userId, {
-            full_name,
-            username,
-            email,
-            bio,
-            location,
-            website
-        });
-
-        // Also update the JWT token info in the response
-        const token = req.headers.authorization?.split(' ')[1];
+        const result = await pool.query(
+            `UPDATE users
+            SET full_name = COALESCE($1, full_name),
+                username = COALESCE($2, username),
+                email = COALESCE($3, email),
+                bio = COALESCE($4, bio),
+                location = COALESCE($5, location),
+                website = COALESCE($6, website),
+                updated_at = NOW()
+            WHERE id = $7
+            RETURNING 
+                id, full_name, username, email, bio, location, website, 
+                profile_picture, role, status`,
+            [full_name, username, email, bio, location, website, userId]
+        );
 
         res.json({
             success: true,
             message: "Profile updated successfully.",
-            user: updatedUser
+            user: result.rows[0]
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Error in updateProfile:", error);
         res.status(500).json({
             success: false,
-            message: "Failed to update profile."
+            message: "Failed to update profile.",
+            error: error.message
         });
     }
 }
@@ -130,6 +159,8 @@ export async function updateProfilePicture(req, res) {
         const userId = req.user.id;
         const { profile_picture } = req.body;
 
+        console.log("Updating profile picture for user:", userId);
+
         if (!profile_picture) {
             return res.status(400).json({
                 success: false,
@@ -137,21 +168,28 @@ export async function updateProfilePicture(req, res) {
             });
         }
 
-        const updatedUser = await updateUserProfile(userId, {
-            profile_picture
-        });
+        const result = await pool.query(
+            `UPDATE users
+            SET profile_picture = $1,
+                updated_at = NOW()
+            WHERE id = $2
+            RETURNING 
+                id, full_name, username, email, profile_picture, bio, role, status`,
+            [profile_picture, userId]
+        );
 
         res.json({
             success: true,
             message: "Profile picture updated successfully.",
-            user: updatedUser
+            user: result.rows[0]
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Error in updateProfilePicture:", error);
         res.status(500).json({
             success: false,
-            message: "Failed to update profile picture."
+            message: "Failed to update profile picture.",
+            error: error.message
         });
     }
 }
@@ -167,6 +205,8 @@ export async function changePassword(req, res) {
     try {
         const userId = req.user.id;
         const { current_password, new_password } = req.body;
+
+        console.log("Changing password for user:", userId);
 
         if (!current_password || !new_password) {
             return res.status(400).json({
@@ -207,7 +247,11 @@ export async function changePassword(req, res) {
 
         // Hash new password
         const hashedPassword = await bcrypt.hash(new_password, 10);
-        await updatePassword(userId, hashedPassword);
+        
+        await pool.query(
+            "UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2",
+            [hashedPassword, userId]
+        );
 
         res.json({
             success: true,
@@ -215,10 +259,11 @@ export async function changePassword(req, res) {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Error in changePassword:", error);
         res.status(500).json({
             success: false,
-            message: "Failed to change password."
+            message: "Failed to change password.",
+            error: error.message
         });
     }
 }
@@ -233,14 +278,34 @@ GET /api/profile/:id
 export async function getUserProfile(req, res) {
     try {
         const { id } = req.params;
-        const user = await findUserById(id);
+        console.log("Fetching user profile for ID:", id);
 
-        if (!user) {
+        const result = await pool.query(
+            `SELECT 
+                id, 
+                full_name, 
+                username, 
+                email, 
+                profile_picture, 
+                bio, 
+                location, 
+                website, 
+                is_online, 
+                last_seen, 
+                created_at 
+            FROM users 
+            WHERE id = $1`,
+            [id]
+        );
+
+        if (!result.rows[0]) {
             return res.status(404).json({
                 success: false,
                 message: "User not found."
             });
         }
+
+        const user = result.rows[0];
 
         res.json({
             success: true,
@@ -259,10 +324,11 @@ export async function getUserProfile(req, res) {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Error in getUserProfile:", error);
         res.status(500).json({
             success: false,
-            message: "Failed to fetch user profile."
+            message: "Failed to fetch user profile.",
+            error: error.message
         });
     }
 }
