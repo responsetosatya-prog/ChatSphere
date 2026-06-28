@@ -5,26 +5,22 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
-import pool from "./config/database.js";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+dotenv.config();
+
 import { initializeDatabase } from "./config/initDatabase.js";
-
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import chatRoutes from "./routes/chat.js";
 import conversationRoutes from "./routes/conversation.js";
 import uploadRoutes from "./routes/upload.js";
 import profileRoutes from "./routes/profile.js";
-
 import { initializeSocket } from "./socket/socket.js";
-
-/*
-==========================================
-CONFIG
-==========================================
-*/
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
@@ -38,7 +34,7 @@ MIDDLEWARE
 app.use(helmet());
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "*",
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true
 }));
 
@@ -52,10 +48,8 @@ STATIC FILES (UPLOADS)
 ==========================================
 */
 
-app.use(
-    "/uploads",
-    express.static(path.resolve("uploads"))
-);
+const uploadsPath = path.join(__dirname, "uploads");
+app.use("/uploads", express.static(uploadsPath));
 
 /*
 ==========================================
@@ -77,12 +71,17 @@ HEALTH CHECK
 */
 
 app.get("/", (req, res) => {
-
     res.json({
         success: true,
         message: "🚀 ChatSphere Backend is Running"
     });
+});
 
+app.get("/health", (req, res) => {
+    res.json({
+        status: "healthy",
+        timestamp: new Date().toISOString()
+    });
 });
 
 /*
@@ -94,15 +93,11 @@ START SERVER
 const PORT = process.env.PORT || 5000;
 
 async function startServer() {
-
     try {
-
         await initializeDatabase();
-
         const io = initializeSocket(server);
 
         server.listen(PORT, () => {
-
             console.log(`
 =========================================
 🚀 ChatSphere Backend Started
@@ -113,18 +108,11 @@ Socket.IO: ACTIVE
 Database: CONNECTED
 =========================================
 `);
-
         });
-
-    }
-
-    catch (error) {
-
+    } catch (error) {
         console.error("❌ Server startup failed:", error);
         process.exit(1);
-
     }
-
 }
 
 startServer();
