@@ -1,3 +1,4 @@
+// frontend/src/pages/Chat.jsx
 import { useEffect, useState, useRef } from "react";
 import { 
   FaSearch, FaUserPlus, FaPaperPlane, 
@@ -57,7 +58,10 @@ function Chat() {
   const loadMessages = async (otherUser) => {
     try {
       setLoading(true);
+      console.log("Loading messages for user:", otherUser);
+      
       const res = await API.get(`/chat/${otherUser.id}`);
+      console.log("Messages response:", res.data);
       
       const unique = Array.from(
         new Map(res.data.messages.map(m => [m.id, m])).values()
@@ -93,7 +97,10 @@ function Chat() {
   // Start conversation
   const startConversation = async (otherUser) => {
     try {
+      console.log("Starting conversation with:", otherUser);
+      
       const res = await API.post("/conversations", { userId: otherUser.id });
+      console.log("Conversation response:", res.data);
       
       if (res.data.success) {
         await loadConversations();
@@ -104,18 +111,27 @@ function Chat() {
       }
     } catch (err) {
       console.error("Error starting conversation:", err);
+      // If error, try to load messages anyway
+      await loadMessages(otherUser);
     }
   };
 
   // Send message
   const sendMessage = async () => {
-    if (!text.trim() || !selectedUser) return;
+    if (!text.trim() || !selectedUser) {
+      console.log("Cannot send: no text or no selected user");
+      return;
+    }
+
+    console.log("Sending message to:", selectedUser.id, "text:", text);
 
     try {
       const res = await API.post("/chat/send", {
         receiver_id: selectedUser.id,
         message: text
       });
+
+      console.log("Message sent response:", res.data);
 
       const newMessage = res.data.data;
       
@@ -127,7 +143,7 @@ function Chat() {
 
       socket.emit("send-message", {
         ...newMessage,
-        conversationId: selectedConversation
+        conversationId: selectedConversation || selectedUser.id
       });
       
       setText("");
@@ -137,6 +153,7 @@ function Chat() {
       await loadConversations();
     } catch (err) {
       console.error("Error sending message:", err);
+      alert("Failed to send message. Please try again.");
     }
   };
 
@@ -144,10 +161,10 @@ function Chat() {
   const handleTyping = (e) => {
     setText(e.target.value);
     
-    if (!typing) {
+    if (!typing && e.target.value.trim()) {
       setTyping(true);
       socket.emit("typing", {
-        conversationId: selectedConversation,
+        conversationId: selectedConversation || selectedUser?.id,
         userId: user.id
       });
     }
@@ -156,7 +173,7 @@ function Chat() {
     typingTimeoutRef.current = setTimeout(() => {
       setTyping(false);
       socket.emit("stop-typing", {
-        conversationId: selectedConversation,
+        conversationId: selectedConversation || selectedUser?.id,
         userId: user.id
       });
     }, 2000);
@@ -176,6 +193,7 @@ function Chat() {
     socket.emit("user-online", user.id);
 
     socket.on("receive-message", (message) => {
+      console.log("Received message:", message);
       setMessages((prev) => {
         const exists = prev.find(m => m.id === message.id);
         if (exists) return prev;
@@ -229,13 +247,20 @@ function Chat() {
     window.location.href = "/login";
   };
 
+  // Log for debugging
+  console.log("Current state:", {
+    selectedUser,
+    hasMessages: messages.length > 0,
+    conversations: conversations.length
+  });
+
   return (
     <div className="chat-container">
       {/* Sidebar */}
       <div className="chat-sidebar">
         <div className="sidebar-header">
           <div className="sidebar-user">
-            <div className={`avatar avatar-online ${onlineUsers.includes(user.id) ? 'online' : ''}`}>
+            <div className="avatar">
               {user.full_name?.charAt(0) || <FaUser />}
             </div>
             <div className="sidebar-user-info">
@@ -356,7 +381,10 @@ function Chat() {
               user={user}
               selectedUser={selectedUser}
               onlineUsers={onlineUsers}
-              onBack={() => setSelectedUser(null)}
+              onBack={() => {
+                setSelectedUser(null);
+                setMessages([]);
+              }}
             />
 
             <div className="messages-container">
@@ -366,27 +394,33 @@ function Chat() {
                 </div>
               ) : (
                 <>
-                  {messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`message ${m.sender_id === user.id ? 'sent' : 'received'}`}
-                    >
-                      {m.sender_id !== user.id && (
-                        <div className="message-avatar avatar avatar-sm">
-                          {selectedUser.username?.charAt(0) || <FaUser />}
-                        </div>
-                      )}
-                      <div className="message-content">
-                        <div className="message-text">{m.message}</div>
-                        <div className="message-time">
-                          {new Date(m.created_at).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
+                  {messages.length === 0 ? (
+                    <div className="empty-messages">
+                      <p>No messages yet. Say hello! 👋</p>
+                    </div>
+                  ) : (
+                    messages.map((m) => (
+                      <div
+                        key={m.id}
+                        className={`message ${m.sender_id === user.id ? 'sent' : 'received'}`}
+                      >
+                        {m.sender_id !== user.id && (
+                          <div className="message-avatar avatar avatar-sm">
+                            {selectedUser.username?.charAt(0) || <FaUser />}
+                          </div>
+                        )}
+                        <div className="message-content">
+                          <div className="message-text">{m.message}</div>
+                          <div className="message-time">
+                            {new Date(m.created_at).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                   
                   {isTyping && (
                     <div className="typing-indicator">
@@ -400,6 +434,7 @@ function Chat() {
               )}
             </div>
 
+            {/* THIS IS THE INPUT BOX - Make sure it's always visible when user is selected */}
             <div className="chat-input-container">
               <button className="input-action">
                 <FaImage />
@@ -411,8 +446,9 @@ function Chat() {
                 value={text}
                 onChange={handleTyping}
                 onKeyPress={handleKeyPress}
-                placeholder="Type a message..."
+                placeholder={`Message ${selectedUser.full_name}...`}
                 className="chat-input"
+                autoFocus
               />
               <button 
                 className="btn btn-primary" 
