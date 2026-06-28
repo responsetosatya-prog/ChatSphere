@@ -1,15 +1,14 @@
-// backend/controllers/chatController.js - Updated
+// backend/controllers/chatController.js - SIMPLIFIED WORKING VERSION
 import pool from "../config/database.js";
 import {
     findConversation,
     createConversation,
     updateConversation
 } from "../models/Conversation.js";
-import { createMessage, getMessageById } from "../models/Message.js";
 
 /*
 ==========================================
-Get Messages Between Users (with replies)
+Get Messages Between Users
 ==========================================
 */
 
@@ -39,28 +38,18 @@ export async function getMessages(req, res) {
         const result = await pool.query(
             `
             SELECT 
-                m.id,
-                m.sender_id,
-                m.receiver_id,
-                m.message,
-                m.message_type,
-                m.media_url,
-                m.is_seen,
-                m.created_at,
-                m.updated_at,
-                m.reply_to_message_id,
-                reply_msg.message as reply_to_message,
-                reply_msg.sender_id as reply_to_sender_id,
-                reply_user.full_name as reply_to_sender_name,
-                reply_user.username as reply_to_username,
-                sender.full_name as sender_name,
-                sender.username as sender_username
-            FROM messages m
-            LEFT JOIN messages reply_msg ON m.reply_to_message_id = reply_msg.id
-            LEFT JOIN users reply_user ON reply_msg.sender_id = reply_user.id
-            LEFT JOIN users sender ON m.sender_id = sender.id
-            WHERE m.conversation_id = $1
-            ORDER BY m.created_at ASC
+                id,
+                sender_id,
+                receiver_id,
+                message,
+                message_type,
+                media_url,
+                is_seen,
+                created_at,
+                updated_at
+            FROM messages
+            WHERE conversation_id = $1
+            ORDER BY created_at ASC
             `,
             [conversation.id]
         );
@@ -84,17 +73,16 @@ export async function getMessages(req, res) {
 
 /*
 ==========================================
-Send Message with Reply Support
+Send Message - SIMPLIFIED VERSION
 ==========================================
 */
 
 export async function sendMessage(req, res) {
     try {
         const senderId = req.user.id;
-        const { receiver_id, message, reply_to_message_id } = req.body;
+        const { receiver_id, message } = req.body;
 
-        console.log(`Sending message from ${senderId} to ${receiver_id}`);
-        console.log(`Reply to message ID: ${reply_to_message_id || 'none'}`);
+        console.log(`Sending message from ${senderId} to ${receiver_id}: "${message}"`);
 
         if (!receiver_id) {
             return res.status(400).json({
@@ -120,39 +108,31 @@ export async function sendMessage(req, res) {
 
         console.log("Conversation ID:", conversation.id);
 
-        // If replying to a message, verify it exists
-        if (reply_to_message_id) {
-            const replyMessage = await getMessageById(reply_to_message_id);
-            if (!replyMessage) {
-                return res.status(404).json({
-                    success: false,
-                    message: "Message you're replying to not found"
-                });
-            }
-            console.log("Reply message found:", replyMessage.id);
-        }
+        // Insert message - WITHOUT reply_to_message_id for now
+        const result = await pool.query(
+            `
+            INSERT INTO messages
+            (conversation_id, sender_id, receiver_id, message, message_type)
+            VALUES ($1, $2, $3, $4, 'text')
+            RETURNING *
+            `,
+            [
+                conversation.id,
+                senderId,
+                receiver_id,
+                message.trim()
+            ]
+        );
 
-        // Insert message
-        const newMessage = await createMessage({
-            conversation_id: conversation.id,
-            sender_id: senderId,
-            receiver_id: receiver_id,
-            message: message.trim(),
-            message_type: "text",
-            reply_to_message_id: reply_to_message_id || null
-        });
-
+        const newMessage = result.rows[0];
         console.log("Message created:", newMessage.id);
 
         // Update conversation last message
         await updateConversation(conversation.id, message.trim());
 
-        // Get the full message with reply data
-        const fullMessage = await getMessageById(newMessage.id);
-
         res.status(201).json({
             success: true,
-            data: fullMessage || newMessage
+            data: newMessage
         });
 
     } catch (error) {
