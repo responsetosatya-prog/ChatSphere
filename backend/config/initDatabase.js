@@ -1,30 +1,30 @@
+// backend/config/initDatabase.js
+import pool from "../config/database.js";
 import { createUsersTable } from "../models/User.js";
 import { createMessagesTable } from "../models/Message.js";
 import { createConversationsTable } from "../models/Conversation.js";
-import pool from "./database.js";
-import bcrypt from "bcrypt";
 
 /*
 ==========================================
-Initialize Database
+Initialize Database with all tables
 ==========================================
 */
 
 export async function initializeDatabase() {
-
     try {
-
         console.log("");
         console.log("======================================");
         console.log("Initializing ChatSphere Database...");
         console.log("======================================");
 
+        // Create tables in correct order
         await createUsersTable();
-        await createMessagesTable();
         await createConversationsTable();
-
-        // Create admin user if not exists
-        await createAdminUser();
+        
+        // Add conversation_id column to messages table if it doesn't exist
+        await ensureConversationIdColumn();
+        
+        await createMessagesTable();
 
         console.log("");
         console.log("======================================");
@@ -32,7 +32,7 @@ export async function initializeDatabase() {
         console.log("======================================");
         console.log("");
 
-    } catch(error) {
+    } catch (error) {
         console.error("");
         console.error("======================================");
         console.error("❌ Database Initialization Failed");
@@ -40,36 +40,41 @@ export async function initializeDatabase() {
         console.error("======================================");
         process.exit(1);
     }
-
 }
 
-async function createAdminUser() {
-    const adminEmail = process.env.ADMIN_EMAIL || "admin@chatsphere.com";
-    const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+async function ensureConversationIdColumn() {
+    try {
+        // Check if conversation_id column exists
+        const checkColumn = await pool.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='messages' AND column_name='conversation_id'
+        `);
 
-    const existing = await pool.query(
-        "SELECT * FROM users WHERE email = $1",
-        [adminEmail]
-    );
-
-    if (existing.rows.length > 0) {
-        console.log("✅ Admin user already exists");
-        return;
+        if (checkColumn.rows.length === 0) {
+            console.log("Adding conversation_id column to messages table...");
+            
+            // Add the column
+            await pool.query(`
+                ALTER TABLE messages 
+                ADD COLUMN conversation_id INTEGER
+            `);
+            
+            // Add foreign key constraint
+            await pool.query(`
+                ALTER TABLE messages 
+                ADD CONSTRAINT fk_conversation 
+                FOREIGN KEY (conversation_id) 
+                REFERENCES conversations(id) 
+                ON DELETE CASCADE
+            `);
+            
+            console.log("✅ conversation_id column added successfully");
+        } else {
+            console.log("✅ conversation_id column already exists");
+        }
+    } catch (error) {
+        console.log("Note: Could not add conversation_id column (might already exist)");
+        // Don't throw error, continue with initialization
     }
-
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
-
-    await pool.query(
-        `INSERT INTO users 
-         (full_name, username, email, password, role, status) 
-         VALUES ($1, $2, $3, $4, 'admin', 'approved')`,
-        [
-            process.env.ADMIN_NAME || "Administrator",
-            "admin",
-            adminEmail,
-            hashedPassword
-        ]
-    );
-
-    console.log("✅ Admin user created successfully");
 }
