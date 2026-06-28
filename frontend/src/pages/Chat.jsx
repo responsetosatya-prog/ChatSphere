@@ -1,9 +1,9 @@
-// frontend/src/pages/Chat.jsx - COMPLETE FIXED VERSION
+// frontend/src/pages/Chat.jsx
 import { useEffect, useState, useRef, useCallback } from "react";
 import { 
   FaSearch, FaUserPlus, FaPaperPlane, 
   FaImage, FaSmile, FaTimes, FaUser,
-  FaReply, FaEllipsisV, FaTrash, FaEdit
+  FaReply, FaTrash, FaEdit
 } from "react-icons/fa";
 import API from "../services/api";
 import socket from "../socket/socket";
@@ -48,7 +48,6 @@ function Chat() {
     scrollToBottom();
   }, [messages]);
 
-  // Load conversations
   const loadConversations = useCallback(async () => {
     try {
       const res = await API.get("/conversations");
@@ -58,7 +57,6 @@ function Chat() {
     }
   }, []);
 
-  // ✅ FIXED: Load messages - sets selectedUser correctly
   const loadMessages = useCallback(async (otherUser) => {
     if (!otherUser || !otherUser.id) {
       console.error("Invalid user:", otherUser);
@@ -69,7 +67,6 @@ function Chat() {
       setLoading(true);
       console.log("Loading messages for user:", otherUser);
       
-      // Set selected user FIRST so the chat interface shows
       setSelectedUser(otherUser);
       
       const res = await API.get(`/chat/${otherUser.id}`);
@@ -77,19 +74,16 @@ function Chat() {
       
       setMessages(res.data.messages || []);
       
-      // Join conversation room for socket
       socket.emit("join-conversation", otherUser.id);
       
     } catch (err) {
       console.error("Error loading messages:", err);
-      // Even if messages fail, keep the user selected
       setSelectedUser(otherUser);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Search users
   const searchUsers = useCallback(async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -104,7 +98,6 @@ function Chat() {
     }
   }, []);
 
-  // Start conversation
   const startConversation = useCallback(async (otherUser) => {
     try {
       console.log("Starting conversation with:", otherUser);
@@ -114,7 +107,6 @@ function Chat() {
       
       if (res.data.success) {
         await loadConversations();
-        // ✅ Use loadMessages to set the user
         await loadMessages(otherUser);
         setShowSearch(false);
         setSearchQuery("");
@@ -122,12 +114,10 @@ function Chat() {
       }
     } catch (err) {
       console.error("Error starting conversation:", err);
-      // ✅ Even if API fails, try to load messages
       await loadMessages(otherUser);
     }
   }, [loadConversations, loadMessages]);
 
-  // ✅ FIXED: Send message with reply support
   const sendMessage = useCallback(async () => {
     if (!text.trim() || !selectedUser) {
       console.log("Cannot send: no text or no selected user");
@@ -181,7 +171,6 @@ function Chat() {
     }
   }, [text, selectedUser, replyTo, loadConversations]);
 
-  // Handle reply
   const handleReply = (message) => {
     setReplyTo({
       id: message.id,
@@ -192,12 +181,10 @@ function Chat() {
     inputRef.current?.focus();
   };
 
-  // Cancel reply
   const cancelReply = () => {
     setReplyTo(null);
   };
 
-  // Handle typing
   const handleTyping = useCallback((e) => {
     setText(e.target.value);
     
@@ -219,7 +206,6 @@ function Chat() {
     }, 2000);
   }, [typing, selectedUser, user.id]);
 
-  // Handle key press
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -307,7 +293,6 @@ function Chat() {
 
   const isAdmin = user?.role === 'admin';
 
-  // Debug logging
   console.log("Current state:", {
     selectedUser: selectedUser?.username || 'none',
     messagesCount: messages.length,
@@ -332,38 +317,37 @@ function Chat() {
             </div>
           </div>
           
-          // In Chat.jsx, inside the sidebar-actions div, add the profile button:
-
-<div className="sidebar-actions">
-    {/* ✅ Profile Button - Add this */}
-    <button 
-        className="btn btn-secondary btn-sm"
-        onClick={() => window.location.href = '/profile'}
-        title="Profile"
-    >
-        <FaUser />
-    </button>
-    
-    {isAdmin && (
-        <button 
-            className="btn btn-primary btn-sm"
-            onClick={() => window.location.href = '/admin'}
-            style={{ marginRight: '4px' }}
-        >
-            ⚙️ Admin
-        </button>
-    )}
-    
-    <button 
-        className="btn btn-secondary btn-sm" 
-        onClick={() => setShowSearch(!showSearch)}
-    >
-        <FaUserPlus />
-    </button>
-    <button className="btn btn-danger btn-sm" onClick={logout}>
-        Logout
-    </button>
-</div>
+          <div className="sidebar-actions">
+            {/* ✅ Profile Button */}
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={() => window.location.href = '/profile'}
+              title="Profile"
+            >
+              <FaUser />
+            </button>
+            
+            {isAdmin && (
+              <button 
+                className="btn btn-primary btn-sm"
+                onClick={() => window.location.href = '/admin'}
+                style={{ marginRight: '4px' }}
+              >
+                ⚙️ Admin
+              </button>
+            )}
+            
+            <button 
+              className="btn btn-secondary btn-sm" 
+              onClick={() => setShowSearch(!showSearch)}
+            >
+              <FaUserPlus />
+            </button>
+            <button className="btn btn-danger btn-sm" onClick={logout}>
+              Logout
+            </button>
+          </div>
+        </div>
 
         {/* Search */}
         {showSearch && (
@@ -454,7 +438,7 @@ function Chat() {
         </div>
       </div>
 
-      {/* Chat Area - THIS IS WHERE THE MESSAGING INTERFACE SHOWS */}
+      {/* Chat Area */}
       <div className="chat-area">
         {selectedUser ? (
           <>
@@ -510,7 +494,6 @@ function Chat() {
                           </div>
                         )}
                         <div className="message-content">
-                          {/* Reply Preview in Message */}
                           {m.reply_to_message_id && (
                             <div className="message-reply-preview">
                               <FaReply className="reply-icon" />
@@ -531,7 +514,6 @@ function Chat() {
                               })}
                             </div>
                             
-                            {/* Message Actions */}
                             <div className="message-actions">
                               <button 
                                 className="message-action-btn"
@@ -575,7 +557,6 @@ function Chat() {
               )}
             </div>
 
-            {/* ✅ THIS IS THE INPUT - Make sure it's always visible when user is selected */}
             <div className="chat-input-container">
               <button className="input-action">
                 <FaImage />
