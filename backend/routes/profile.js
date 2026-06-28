@@ -18,34 +18,37 @@ Base URL: /api/profile
 ==========================================
 */
 
+// All routes require authentication
+router.use(authenticateToken);
+
 /**
  * Get my profile
  * GET /api/profile/me
  */
-router.get("/me", authenticateToken, getMyProfile);
+router.get("/me", getMyProfile);
 
 /**
  * Update my profile
  * PUT /api/profile/update
  */
-router.put("/update", authenticateToken, updateProfile);
+router.put("/update", updateProfile);
 
 /**
  * Update profile picture
  * PUT /api/profile/picture
  */
-router.put("/picture", authenticateToken, updateProfilePicture);
+router.put("/picture", updateProfilePicture);
 
 /**
  * Change password
  * PUT /api/profile/password
  */
-router.put("/password", authenticateToken, changePassword);
+router.put("/password", changePassword);
 
 /**
  * Get user profile by ID
  * GET /api/profile/:id
  */
-router.get("/:id", authenticateToken, getUserProfile);
+router.get("/:id", getUserProfile);
 
 export default router;
