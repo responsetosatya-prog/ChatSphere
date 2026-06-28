@@ -1,4 +1,8 @@
-// Add this function to auto-approve users during registration
+// backend/controllers/authController.js
+import bcrypt from "bcrypt";
+import { generateToken } from "../utils/generateToken.js";
+import pool from "../config/database.js";
+
 export async function register(req, res) {
     try {
         const {
@@ -15,16 +19,24 @@ export async function register(req, res) {
             });
         }
 
-        const emailExists = await findUserByEmail(email);
-        if (emailExists) {
+        // Check if email exists
+        const emailCheck = await pool.query(
+            "SELECT * FROM users WHERE email = $1",
+            [email]
+        );
+        if (emailCheck.rows[0]) {
             return res.status(409).json({
                 success: false,
                 message: "Email already exists."
             });
         }
 
-        const usernameExists = await findUserByUsername(username);
-        if (usernameExists) {
+        // Check if username exists
+        const usernameCheck = await pool.query(
+            "SELECT * FROM users WHERE username = $1",
+            [username]
+        );
+        if (usernameCheck.rows[0]) {
             return res.status(409).json({
                 success: false,
                 message: "Username already exists."
@@ -33,23 +45,26 @@ export async function register(req, res) {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // ✅ Auto-approve for testing (remove this in production)
-        const newUser = await pool.query(
-            `INSERT INTO users (full_name, username, email, password, status)
-             VALUES ($1, $2, $3, $4, 'approved')
-             RETURNING *`,
+        // ✅ Auto-approve users (remove pending status)
+        const result = await pool.query(
+            `INSERT INTO users (full_name, username, email, password, status, role)
+             VALUES ($1, $2, $3, $4, 'approved', 'user')
+             RETURNING id, full_name, username, email, status, role`,
             [full_name, username, email, hashedPassword]
         );
 
+        const newUser = result.rows[0];
+
         return res.status(201).json({
             success: true,
-            message: "Registration successful! Your account is approved.",
+            message: "Registration successful! You can now login.",
             user: {
-                id: newUser.rows[0].id,
-                full_name: newUser.rows[0].full_name,
-                username: newUser.rows[0].username,
-                email: newUser.rows[0].email,
-                status: newUser.rows[0].status
+                id: newUser.id,
+                full_name: newUser.full_name,
+                username: newUser.username,
+                email: newUser.email,
+                status: newUser.status,
+                role: newUser.role
             }
         });
 
