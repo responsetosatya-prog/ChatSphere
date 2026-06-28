@@ -1,80 +1,26 @@
 import express from "express";
-
-import {
-    getDashboard,
-    getUsers,
-    approveUser,
-    blockUser,
-    deleteUser
-} from "../controllers/adminController.js";
-
-import {
-    authenticateToken,
-    requireAdmin
-} from "../middleware/auth.js";
+import pool from "../config/database.js";
 
 const router = express.Router();
 
-/*
-==========================================
-Admin Routes
-Base URL: /api/admin
-==========================================
-*/
+router.get("/approve/:email", async (req, res) => {
+    try {
+        await pool.query(
+            "UPDATE users SET status = 'approved' WHERE email = $1",
+            [req.params.email]
+        );
 
-/*
-Dashboard Statistics
-GET /api/admin/dashboard
-*/
-router.get(
-    "/dashboard",
-    authenticateToken,
-    requireAdmin,
-    getDashboard
-);
-
-/*
-Get All Users
-GET /api/admin/users
-*/
-router.get(
-    "/users",
-    authenticateToken,
-    requireAdmin,
-    getUsers
-);
-
-/*
-Approve User
-PUT /api/admin/users/:id/approve
-*/
-router.put(
-    "/users/:id/approve",
-    authenticateToken,
-    requireAdmin,
-    approveUser
-);
-
-/*
-Block User
-PUT /api/admin/users/:id/block
-*/
-router.put(
-    "/users/:id/block",
-    authenticateToken,
-    requireAdmin,
-    blockUser
-);
-
-/*
-Delete User
-DELETE /api/admin/users/:id
-*/
-router.delete(
-    "/users/:id",
-    authenticateToken,
-    requireAdmin,
-    deleteUser
-);
+        res.json({
+            success: true,
+            message: "User approved."
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            success: false,
+            message: "Approval failed."
+        });
+    }
+});
 
 export default router;
