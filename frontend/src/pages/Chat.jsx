@@ -59,29 +59,32 @@ if (!user) {
     LOAD MESSAGES (DEDUP SAFE)
     ==========================================
     */
-    const loadMessages = async (userId) => {
+    const loadMessages = async (otherUser) => {
 
-        try {
+    try {
 
-            const res = await API.get(`/chat/${userId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+        const res = await API.get(`/chat/${otherUser.id}`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
 
-            // FIX: ensure unique messages
-            const unique = Array.from(
-                new Map(res.data.messages.map(m => [m.id, m])).values()
-            );
+        const unique = Array.from(
+            new Map(res.data.messages.map(m => [m.id, m])).values()
+        );
 
-            setMessages(unique);
-            setSelectedUser(userId);
+        setMessages(unique);
 
-            socket.emit("join-conversation", userId);
+        // SAVE THE WHOLE USER OBJECT
+        setSelectedUser(otherUser);
 
-        } catch (err) {
-            console.error(err);
-        }
+        socket.emit("join-conversation", otherUser.id);
 
-    };
+    } catch (err) {
+        console.error(err);
+    }
+
+};
 
     /*
     ==========================================
@@ -97,7 +100,7 @@ if (!user) {
             const res = await API.post(
                 "/chat/send",
                 {
-                    receiver_id: selectedUser,
+                    receiver_id: selectedUser.id,
                     message: text
                 },
                 {
@@ -185,7 +188,7 @@ if (!user) {
         <div
             key={i}
             style={styles.chatItem}
-            onClick={() => loadMessages(otherUser.id)}
+            onClick={() => loadMessages(otherUser)}
         >
 
             <strong>{otherUser.username}</strong>
