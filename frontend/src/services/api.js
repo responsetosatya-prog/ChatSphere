@@ -1,4 +1,3 @@
-// frontend/src/services/api.js
 import axios from "axios";
 
 const API = axios.create({
@@ -7,7 +6,6 @@ const API = axios.create({
         : "http://localhost:5000/api"
 });
 
-// Add token to every request
 API.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem("token");
@@ -19,7 +17,6 @@ API.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Handle response errors
 API.interceptors.response.use(
     (response) => response,
     (error) => {
