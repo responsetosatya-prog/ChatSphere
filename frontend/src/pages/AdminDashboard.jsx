@@ -1,9 +1,6 @@
+// frontend/src/pages/AdminDashboard.jsx
 import { useState, useEffect } from "react";
-import { 
-  FaUsers, FaUserCheck, FaUserTimes, 
-  FaEnvelope, FaTrash, FaShieldAlt,
-  FaUserCog, FaChartLine, FaClock
-} from "react-icons/fa";
+import { FaUsers, FaUserCheck, FaUserTimes, FaEnvelope, FaTrash, FaChartLine, FaClock } from "react-icons/fa";
 import API from "../services/api";
 import { useNavigate } from "react-router-dom";
 
@@ -48,6 +45,7 @@ function AdminDashboard() {
       await loadDashboard();
     } catch (err) {
       console.error("Error approving user:", err);
+      alert("Failed to approve user");
     }
   };
 
@@ -57,6 +55,7 @@ function AdminDashboard() {
       await loadDashboard();
     } catch (err) {
       console.error("Error blocking user:", err);
+      alert("Failed to block user");
     }
   };
 
@@ -67,6 +66,7 @@ function AdminDashboard() {
       await loadDashboard();
     } catch (err) {
       console.error("Error deleting user:", err);
+      alert("Failed to delete user");
     }
   };
 
@@ -106,19 +106,19 @@ function AdminDashboard() {
             className={`admin-nav-item ${activeTab === "dashboard" ? "active" : ""}`}
             onClick={() => setActiveTab("dashboard")}
           >
-            <FaChartLine /> Dashboard
+            <FaChartLine /> <span>Dashboard</span>
           </button>
           <button 
             className={`admin-nav-item ${activeTab === "users" ? "active" : ""}`}
             onClick={() => setActiveTab("users")}
           >
-            <FaUsers /> Users
+            <FaUsers /> <span>Users</span>
           </button>
           <button 
             className="admin-nav-item logout"
             onClick={logout}
           >
-            Logout
+            <span>Logout</span>
           </button>
         </nav>
       </div>
@@ -129,7 +129,7 @@ function AdminDashboard() {
           <h1>Admin Dashboard</h1>
           <div className="admin-header-actions">
             <button className="btn btn-secondary btn-sm" onClick={loadDashboard}>
-              Refresh
+              🔄 Refresh
             </button>
           </div>
         </div>
@@ -218,13 +218,6 @@ function AdminDashboard() {
           <div className="admin-card">
             <div className="users-header">
               <h3>All Users</h3>
-              <div className="users-actions">
-                <input 
-                  type="text" 
-                  placeholder="Search users..."
-                  className="search-input"
-                />
-              </div>
             </div>
             
             <div className="users-table-container">
@@ -272,15 +265,15 @@ function AdminDashboard() {
                               className="btn btn-success btn-sm"
                               onClick={() => approveUser(user.id)}
                             >
-                              Approve
+                              ✅ Approve
                             </button>
                           )}
-                          {user.status === 'approved' && (
+                          {user.status === 'approved' && user.role !== 'admin' && (
                             <button 
                               className="btn btn-danger btn-sm"
                               onClick={() => blockUser(user.id)}
                             >
-                              Block
+                              🚫 Block
                             </button>
                           )}
                           {user.status === 'blocked' && (
@@ -288,15 +281,17 @@ function AdminDashboard() {
                               className="btn btn-success btn-sm"
                               onClick={() => approveUser(user.id)}
                             >
-                              Unblock
+                              🔓 Unblock
                             </button>
                           )}
-                          <button 
-                            className="btn btn-danger btn-sm"
-                            onClick={() => deleteUser(user.id)}
-                          >
-                            <FaTrash />
-                          </button>
+                          {user.role !== 'admin' && (
+                            <button 
+                              className="btn btn-danger btn-sm"
+                              onClick={() => deleteUser(user.id)}
+                            >
+                              <FaTrash />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
