@@ -1,7 +1,6 @@
 import express from "express";
 import pool from "../config/database.js";
-import verifyToken from "../middleware/auth.js";
-
+import { authenticateToken } from "../middleware/auth.js";
 const router = express.Router();
 
 /*
@@ -12,7 +11,7 @@ GET ALL USERS
 
 router.get(
     "/users",
-    verifyToken,
+    authenticateToken,
     async (req, res) => {
 
         try {
