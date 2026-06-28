@@ -1,14 +1,23 @@
+import { useNavigate } from "react-router-dom";
+
 function ChatHeader({ user, selectedUser, onlineUsers = [] }) {
+
+    const navigate = useNavigate();
 
     if (!selectedUser) return null;
 
     const isOnline = onlineUsers.includes(selectedUser.id);
 
     const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.location.href = "/login";
-};
+
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+
+        socket?.disconnect?.();
+
+        navigate("/login", { replace: true });
+
+    };
 
     return (
 
@@ -21,6 +30,7 @@ function ChatHeader({ user, selectedUser, onlineUsers = [] }) {
                 </div>
 
                 <div>
+
                     <div style={styles.name}>
                         {selectedUser.username}
                     </div>
@@ -28,18 +38,21 @@ function ChatHeader({ user, selectedUser, onlineUsers = [] }) {
                     <div style={styles.status}>
                         {isOnline ? "🟢 Online" : "⚫ Offline"}
                     </div>
+
                 </div>
 
             </div>
 
-            <<div style={styles.right}>
-    <button
-        onClick={logout}
-        style={styles.logoutButton}
-    >
-        Logout
-    </button>
-</div>
+            <div style={styles.right}>
+
+                <button
+                    style={styles.logoutButton}
+                    onClick={logout}
+                >
+                    Logout
+                </button>
+
+            </div>
 
         </div>
 
@@ -50,63 +63,62 @@ function ChatHeader({ user, selectedUser, onlineUsers = [] }) {
 const styles = {
 
     header: {
-        height: "60px",
+        height: "65px",
         background: "#1e293b",
+        borderBottom: "1px solid #334155",
         display: "flex",
-        alignItems: "center",
         justifyContent: "space-between",
-        padding: "0 15px",
-        borderBottom: "1px solid #334155"
+        alignItems: "center",
+        padding: "0 20px"
     },
 
-            logoutButton: {
-    background: "#ef4444",
-    color: "white",
-    border: "none",
-    padding: "8px 14px",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "bold"
-},
-
     left: {
+        display: "flex",
+        alignItems: "center",
+        gap: "12px"
+    },
+
+    avatar: {
+        width: "45px",
+        height: "45px",
+        borderRadius: "50%",
+        background: "#3b82f6",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        color: "#fff",
+        fontSize: "18px",
+        fontWeight: "bold"
+    },
+
+    name: {
+        color: "#fff",
+        fontSize: "17px",
+        fontWeight: "600"
+    },
+
+    status: {
+        color: "#94a3b8",
+        fontSize: "13px",
+        marginTop: "2px"
+    },
+
+    right: {
         display: "flex",
         alignItems: "center",
         gap: "10px"
     },
 
-    avatar: {
-        width: "40px",
-        height: "40px",
-        borderRadius: "50%",
-        background: "#3b82f6",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "white",
-        fontWeight: "bold"
-    },
-
-    name: {
-        color: "white",
-        fontWeight: "bold"
-    },
-
-    status: {
-        fontSize: "12px",
-        color: "#94a3b8"
-    },
-
-    right: {
-        color: "white"
-    },
-
-    icon: {
-        background: "transparent",
+    logoutButton: {
+        background: "#ef4444",
+        color: "#fff",
         border: "none",
-        color: "white",
-        fontSize: "20px",
-        cursor: "pointer"
+        borderRadius: "8px",
+        padding: "10px 18px",
+        cursor: "pointer",
+        fontWeight: "600",
+        fontSize: "14px",
+        transition: "0.2s"
     }
 
 };
