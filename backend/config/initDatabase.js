@@ -1,4 +1,4 @@
-// backend/config/initDatabase.js - COMPLETE FIXED VERSION
+// backend/config/initDatabase.js - Updated with missing columns
 import pool from "../config/database.js";
 
 export async function initializeDatabase() {
@@ -8,7 +8,7 @@ export async function initializeDatabase() {
         console.log("Initializing ChatSphere Database...");
         console.log("======================================");
 
-        // 1. Create users table
+        // 1. Create users table with all columns
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -18,6 +18,8 @@ export async function initializeDatabase() {
                 password VARCHAR(255) NOT NULL,
                 profile_picture TEXT DEFAULT '',
                 bio TEXT DEFAULT '',
+                location VARCHAR(100) DEFAULT '',
+                website VARCHAR(200) DEFAULT '',
                 role VARCHAR(20) DEFAULT 'user',
                 status VARCHAR(20) DEFAULT 'pending',
                 is_online BOOLEAN DEFAULT FALSE,
@@ -28,7 +30,38 @@ export async function initializeDatabase() {
         `);
         console.log("✅ Users table ready");
 
-        // 2. Create conversations table
+        // 2. Add missing columns if they don't exist
+        try {
+            // Check if location column exists
+            const checkLocation = await pool.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='users' AND column_name='location'
+            `);
+            
+            if (checkLocation.rows.length === 0) {
+                console.log("📝 Adding location column...");
+                await pool.query(`ALTER TABLE users ADD COLUMN location VARCHAR(100) DEFAULT ''`);
+                console.log("✅ location column added");
+            }
+
+            // Check if website column exists
+            const checkWebsite = await pool.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='users' AND column_name='website'
+            `);
+            
+            if (checkWebsite.rows.length === 0) {
+                console.log("📝 Adding website column...");
+                await pool.query(`ALTER TABLE users ADD COLUMN website VARCHAR(200) DEFAULT ''`);
+                console.log("✅ website column added");
+            }
+        } catch (err) {
+            console.log("ℹ️ Columns might already exist:", err.message);
+        }
+
+        // 3. Create conversations table
         await pool.query(`
             CREATE TABLE IF NOT EXISTS conversations (
                 id SERIAL PRIMARY KEY,
@@ -51,7 +84,7 @@ export async function initializeDatabase() {
         `);
         console.log("✅ Conversations table ready");
 
-        // 3. Create messages table (without reply_to_message_id first)
+        // 4. Create messages table
         await pool.query(`
             CREATE TABLE IF NOT EXISTS messages (
                 id SERIAL PRIMARY KEY,
@@ -62,6 +95,7 @@ export async function initializeDatabase() {
                 message_type VARCHAR(20) DEFAULT 'text',
                 media_url TEXT DEFAULT '',
                 is_seen BOOLEAN DEFAULT FALSE,
+                reply_to_message_id INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 CONSTRAINT fk_sender
@@ -76,44 +110,7 @@ export async function initializeDatabase() {
         `);
         console.log("✅ Messages table ready");
 
-        // 4. ✅ ADD reply_to_message_id column if it doesn't exist
-        try {
-            // Check if column exists
-            const checkColumn = await pool.query(`
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name='messages' AND column_name='reply_to_message_id'
-            `);
-            
-            if (checkColumn.rows.length === 0) {
-                console.log("📝 Adding reply_to_message_id column...");
-                await pool.query(`
-                    ALTER TABLE messages 
-                    ADD COLUMN reply_to_message_id INTEGER
-                `);
-                console.log("✅ reply_to_message_id column added");
-            } else {
-                console.log("✅ reply_to_message_id column already exists");
-            }
-        } catch (err) {
-            console.log("ℹ️ Could not add reply_to_message_id column:", err.message);
-        }
-
-        // 5. ✅ Add foreign key for reply_to_message_id
-        try {
-            await pool.query(`
-                ALTER TABLE messages 
-                ADD CONSTRAINT fk_reply_to
-                FOREIGN KEY (reply_to_message_id)
-                REFERENCES messages(id)
-                ON DELETE SET NULL
-            `);
-            console.log("✅ Reply foreign key added");
-        } catch (err) {
-            console.log("ℹ️ Reply foreign key already exists or could not be added");
-        }
-
-        // 6. Add conversation_id foreign key if it doesn't exist
+        // 5. Add foreign keys for messages
         try {
             await pool.query(`
                 ALTER TABLE messages 
@@ -127,6 +124,19 @@ export async function initializeDatabase() {
             console.log("ℹ️ Conversation foreign key already exists");
         }
 
+        try {
+            await pool.query(`
+                ALTER TABLE messages 
+                ADD CONSTRAINT fk_reply_to
+                FOREIGN KEY (reply_to_message_id)
+                REFERENCES messages(id)
+                ON DELETE SET NULL
+            `);
+            console.log("✅ Reply foreign key added");
+        } catch (err) {
+            console.log("ℹ️ Reply foreign key already exists");
+        }
+
         console.log("");
         console.log("======================================");
         console.log("✅ Database Initialized Successfully");
@@ -134,6 +144,5 @@ export async function initializeDatabase() {
 
     } catch (error) {
         console.error("❌ Database initialization error:", error);
-        // Don't exit, let the app continue
     }
 }
