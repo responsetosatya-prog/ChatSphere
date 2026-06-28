@@ -16,9 +16,13 @@ function App() {
 
                 {/* DEFAULT ROUTE */}
                 <Route
-                    path="/"
-                    element={<Navigate to="/login" />}
-                />
+    path="/"
+    element={
+        localStorage.getItem("token")
+            ? <Navigate to="/chat" />
+            : <Navigate to="/login" />
+    }
+/>
 
                 {/* LOGIN */}
                 <Route path="/login" element={<Login />} />
